@@ -10,10 +10,10 @@ class QuizPlayPage extends StatefulWidget {
 }
 
 class _QuizPlayPageState extends State<QuizPlayPage> with SingleTickerProviderStateMixin {
+  int _currentQuestionIndex = 0;
   int? _selectedOptionIndex;
   bool _showResult = false;
   bool? _isCorrect;
-  bool _isOptionSelected = false; // משתנה חדש למעקב אחרי בחירה
   late AnimationController _controller;
   late Animation<double> _flipAnimation;
 
@@ -37,12 +37,12 @@ class _QuizPlayPageState extends State<QuizPlayPage> with SingleTickerProviderSt
 
   @override
   Widget build(BuildContext context) {
-    final firstQuestion = widget.quiz.questions.isNotEmpty ? widget.quiz.questions[0] : null;
+    final currentQuestion = widget.quiz.questions.isNotEmpty ? widget.quiz.questions[_currentQuestionIndex] : null;
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.quiz.title),
       ),
-      body: firstQuestion == null
+      body: currentQuestion == null
           ? const Center(child: Text('No questions available.'))
           : Padding(
               padding: const EdgeInsets.all(16.0),
@@ -56,7 +56,7 @@ class _QuizPlayPageState extends State<QuizPlayPage> with SingleTickerProviderSt
                       padding: const EdgeInsets.all(20.0),
                       child: Center(
                         child: Text(
-                          firstQuestion.question,
+                          currentQuestion.question,
                           style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                           textAlign: TextAlign.center,
                         ),
@@ -74,26 +74,28 @@ class _QuizPlayPageState extends State<QuizPlayPage> with SingleTickerProviderSt
                             children: [
                               Expanded(
                                 child: GestureDetector(
-                                  onTap: !_isOptionSelected ? () {
+                                  onTap: _showResult ? null : () {
                                     setState(() {
                                       _selectedOptionIndex = 0;
+                                      // Reset result state when selecting a new answer
                                       _showResult = false;
-                                      _isOptionSelected = true; // עדכון משתנה הבחירה
+                                      _controller.reset();
                                     });
-                                  } : null,
-                                  child: _buildOptionCard(firstQuestion, 0, cardWidth, minCardHeight),
+                                  },
+                                  child: _buildOptionCard(currentQuestion, 0, cardWidth, minCardHeight),
                                 ),
                               ),
                               Expanded(
                                 child: GestureDetector(
-                                  onTap: !_isOptionSelected ? () {
+                                  onTap: _showResult ? null : () {
                                     setState(() {
                                       _selectedOptionIndex = 1;
+                                      // Reset result state when selecting a new answer
                                       _showResult = false;
-                                      _isOptionSelected = true; // עדכון משתנה הבחירה
+                                      _controller.reset();
                                     });
-                                  } : null,
-                                  child: _buildOptionCard(firstQuestion, 1, cardWidth, minCardHeight),
+                                  },
+                                  child: _buildOptionCard(currentQuestion, 1, cardWidth, minCardHeight),
                                 ),
                               ),
                             ],
@@ -102,26 +104,28 @@ class _QuizPlayPageState extends State<QuizPlayPage> with SingleTickerProviderSt
                             children: [
                               Expanded(
                                 child: GestureDetector(
-                                  onTap: !_isOptionSelected ? () {
+                                  onTap: _showResult ? null : () {
                                     setState(() {
                                       _selectedOptionIndex = 2;
+                                      // Reset result state when selecting a new answer
                                       _showResult = false;
-                                      _isOptionSelected = true; // עדכון משתנה הבחירה
+                                      _controller.reset();
                                     });
-                                  } : null,
-                                  child: _buildOptionCard(firstQuestion, 2, cardWidth, minCardHeight),
+                                  },
+                                  child: _buildOptionCard(currentQuestion, 2, cardWidth, minCardHeight),
                                 ),
                               ),
                               Expanded(
                                 child: GestureDetector(
-                                  onTap: !_isOptionSelected ? () {
+                                  onTap: _showResult ? null : () {
                                     setState(() {
                                       _selectedOptionIndex = 3;
+                                      // Reset result state when selecting a new answer
                                       _showResult = false;
-                                      _isOptionSelected = true; // עדכון משתנה הבחירה
+                                      _controller.reset();
                                     });
-                                  } : null,
-                                  child: _buildOptionCard(firstQuestion, 3, cardWidth, minCardHeight),
+                                  },
+                                  child: _buildOptionCard(currentQuestion, 3, cardWidth, minCardHeight),
                                 ),
                               ),
                             ],
@@ -143,26 +147,27 @@ class _QuizPlayPageState extends State<QuizPlayPage> with SingleTickerProviderSt
                       ),
                       onPressed: _selectedOptionIndex != null && !_showResult
                           ? () async {
-                              final firstQuestion = widget.quiz.questions[0];
+                              final currentQuestion = widget.quiz.questions[_currentQuestionIndex];
                               final correct = _selectedOptionIndex != null &&
-                                  firstQuestion.options[_selectedOptionIndex!].correct;
+                                  currentQuestion.options[_selectedOptionIndex!].correct;
+                              
                               setState(() {
                                 _isCorrect = correct;
-                              });
-                              await _controller.forward();
-                              setState(() {
                                 _showResult = true;
                               });
-                              Future.delayed(Duration(seconds: 3), () {
-                                // לוגיקה למעבר לשאלה הבאה
-                                // לדוגמה: עדכון אינדקס השאלה הנוכחית
-                                // currentQuestionIndex++;
-                                // setState(() {
-                                //   _selectedOptionIndex = null;
-                                //   _showResult = false;
-                                //   _isOptionSelected = false; // איפוס משתנה הבחירה
-                                // });
-                              });
+                              
+                              await _controller.forward();
+                              
+                              await Future.delayed(const Duration(seconds: 2));
+                              
+                              if (mounted && _currentQuestionIndex < widget.quiz.questions.length - 1) {
+                                setState(() {
+                                  _currentQuestionIndex++;
+                                  _selectedOptionIndex = null;
+                                  _showResult = false;
+                                  _controller.reset();
+                                });
+                              }
                             }
                           : null,
                       child: const Text(
@@ -177,33 +182,31 @@ class _QuizPlayPageState extends State<QuizPlayPage> with SingleTickerProviderSt
     );
   }
 
-  Widget _buildOptionCard(firstQuestion, int index, double width, double minHeight) {
+  Widget _buildOptionCard(currentQuestion, int index, double width, double minHeight) {
     final isSelected = _selectedOptionIndex == index;
-    final optionText = firstQuestion.options.length > index ? firstQuestion.options[index].text : '';
-    final isCorrect = firstQuestion.options.length > index ? firstQuestion.options[index].correct : false;
-    final double expandedHeight = minHeight * 1.2;
+    final optionText = currentQuestion.options.length > index ? currentQuestion.options[index].text : '';
+    final isCorrect = currentQuestion.options.length > index ? currentQuestion.options[index].correct : false;
 
     return AnimatedBuilder(
       animation: _flipAnimation,
       builder: (context, child) {
-        final angle = isSelected ? _flipAnimation.value * 3.14159 : 0.0;
-        final currentHeight = isSelected 
-            ? minHeight + (_flipAnimation.value * (expandedHeight - minHeight))
-            : minHeight;
+        final angle = isSelected && _showResult ? _flipAnimation.value * 3.14159 : 0.0;
 
         return SizedBox(
           width: width,
-          height: currentHeight,
+          height: minHeight,
           child: Transform(
-            transform: Matrix4.rotationY(angle),
+            transform: Matrix4.identity()
+              ..setEntry(3, 2, 0.001)
+              ..rotateY(angle),
             alignment: Alignment.center,
-            child: angle < 1.57
+            child: angle < 1.57079633
                 ? Card(
-                    elevation: 1,
+                    elevation: 4,
                     margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
                     child: Container(
                       width: width,
-                      height: currentHeight,
+                      height: minHeight,
                       decoration: isSelected
                           ? BoxDecoration(
                               gradient: LinearGradient(
@@ -229,16 +232,16 @@ class _QuizPlayPageState extends State<QuizPlayPage> with SingleTickerProviderSt
                       ),
                     ),
                   )
-                : Transform.scale(
-                    scaleX: -1,
-                    scaleY: 1,
+                : Transform(
+                    transform: Matrix4.identity()..rotateY(3.14159),
+                    alignment: Alignment.center,
                     child: Card(
-                      elevation: 1,
+                      elevation: 4,
                       margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
                       color: isCorrect ? Colors.green[400] : Colors.red[400],
                       child: Container(
                         width: width,
-                        height: currentHeight,
+                        height: minHeight,
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(4),
                         ),
