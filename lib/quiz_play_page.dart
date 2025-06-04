@@ -14,6 +14,8 @@ class _QuizPlayPageState extends State<QuizPlayPage> with SingleTickerProviderSt
   int? _selectedOptionIndex;
   bool _showResult = false;
   bool? _isCorrect;
+  int _correctAnswers = 0;
+  bool _quizCompleted = false;
   late AnimationController _controller;
   late Animation<double> _flipAnimation;
 
@@ -38,13 +40,46 @@ class _QuizPlayPageState extends State<QuizPlayPage> with SingleTickerProviderSt
   @override
   Widget build(BuildContext context) {
     final currentQuestion = widget.quiz.questions.isNotEmpty ? widget.quiz.questions[_currentQuestionIndex] : null;
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.quiz.title),
-      ),
-      body: currentQuestion == null
-          ? const Center(child: Text('No questions available.'))
-          : Padding(
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(widget.quiz.title),
+        ),
+        body: _quizCompleted
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text(
+                    'סיימת את השאלון!',
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    'תשובות נכונות: $_correctAnswers מתוך ${widget.quiz.questions.length}',
+                    style: const TextStyle(fontSize: 20),
+                  ),
+                  const SizedBox(height: 30),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF1976D2),
+                      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 15),
+                    ),
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                    },
+                    child: const Text(
+                      'חזרה לתפריט הראשי',
+                      style: TextStyle(fontSize: 18, color: Colors.white),
+                    ),
+                  ),
+                ],
+              ),
+            )
+          : currentQuestion == null
+              ? const Center(child: Text('No questions available.'))
+              : Padding(
               padding: const EdgeInsets.all(16.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -160,13 +195,25 @@ class _QuizPlayPageState extends State<QuizPlayPage> with SingleTickerProviderSt
                               
                               await Future.delayed(const Duration(seconds: 2));
                               
-                              if (mounted && _currentQuestionIndex < widget.quiz.questions.length - 1) {
+                              if (correct) {
                                 setState(() {
-                                  _currentQuestionIndex++;
-                                  _selectedOptionIndex = null;
-                                  _showResult = false;
-                                  _controller.reset();
+                                  _correctAnswers++;
                                 });
+                              }
+
+                              if (mounted) {
+                                if (_currentQuestionIndex < widget.quiz.questions.length - 1) {
+                                  setState(() {
+                                    _currentQuestionIndex++;
+                                    _selectedOptionIndex = null;
+                                    _showResult = false;
+                                    _controller.reset();
+                                  });
+                                } else {
+                                  setState(() {
+                                    _quizCompleted = true;
+                                  });
+                                }
                               }
                             }
                           : null,
@@ -179,6 +226,7 @@ class _QuizPlayPageState extends State<QuizPlayPage> with SingleTickerProviderSt
                 ],
               ),
             ),
+      ),
     );
   }
 

@@ -1,6 +1,9 @@
 import 'quiz_model.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 
-final List<Quiz> mockQuizzes = [
+// שינוי מרשימה קבועה לרשימה שניתן לעדכן
+List<Quiz> mockQuizzes = [
   Quiz(
     title: "מדריך הכשרה לדירוג מכשירים לטיסה",
     description: "מדריך מקצועי להכשרת טייסים לטיסת מכשירים, כולל תרגילים ופרוצדורות לטיסה בתנאי ראות לקויה.",
@@ -97,5 +100,41 @@ final List<Quiz> mockQuizzes = [
       ),
     ],
   ),
-  // Add more mock quizzes here if needed
 ];
+
+// פונקציה לטעינת חידונים מהשרת
+Future<void> loadQuizzesFromApi() async {
+  try {
+    final response = await http.get(Uri.parse('http://localhost:8001/api/quizzes/all/raw'));
+    
+    if (response.statusCode == 200) {
+      final jsonData = jsonDecode(response.body);
+      
+      if (jsonData['success'] == true && jsonData['data'] != null) {
+        // מחיקת החידונים הקיימים
+        mockQuizzes.clear();
+        
+        // המרת ה-JSON לאובייקטים של Quiz
+        final quizData = jsonData['data'] as Map<String, dynamic>;
+        
+        quizData.forEach((quizId, quizJson) {
+          final quiz = Quiz(
+            title: quizJson['title'] ?? 'חידון ללא כותרת',
+            description: quizJson['description'] ?? '',
+            questions: (quizJson['questions'] as List<dynamic>).map((q) => QuizQuestion(
+              question: q['question'] as String,
+              options: (q['options'] as List<dynamic>).map((o) => QuizOption(
+                text: o['text'] as String,
+                correct: o['correct'] as bool,
+              )).toList(),
+            )).toList(),
+          );
+          
+          mockQuizzes.add(quiz);
+        });
+      }
+    }
+  } catch (e) {
+    print('שגיאה בטעינת החידונים: $e');
+  }
+}
