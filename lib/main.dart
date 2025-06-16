@@ -97,51 +97,88 @@ class _HomePageState extends State<HomePage> {
   // פונקציה לבניית תמונת פרופיל עם fallback
   // עדכן את הפונקציה _buildProfileImage ב-main.dart:
 
+  // החלף את הפונקציה _buildProfileImage הקיימת בזו:
   Widget _buildProfileImage(User? user) {
     print('🔍 Building profile image for user: ${user?.email}');
     print('🖼️ Picture URL: "${user?.picture}"');
-    print('🔍 Picture is null: ${user?.picture == null}');
-    print('🔍 Picture is empty: ${user?.picture == ""}');
 
-    if (user?.picture != null && user!.picture!.isNotEmpty) {
-      print('✅ Picture exists, loading from: ${user.picture}');
+    // תמיד נתחיל עם תמונת initials כ-fallback
+    final initialsWidget = _buildInitialsAvatar(user);
+
+    // אם יש URL של תמונה, ננסה לטעון אותה
+    if (user?.picture != null &&
+        user!.picture!.isNotEmpty &&
+        (user.picture!.startsWith('http://') || user.picture!.startsWith('https://'))) {
+
+      print('✅ Attempting to load picture from: ${user.picture}');
+
       return CircleAvatar(
-        backgroundImage: NetworkImage(user.picture!),
         radius: 16,
         backgroundColor: Colors.grey.shade300,
-        onBackgroundImageError: (error, stackTrace) {
-          print('❌ Error loading image: $error');
-        },
-      );
-    } else {
-      print('⚠️ No picture, showing initials');
-      // אם אין תמונה, הצג את האותיות הראשונות של השם
-      String initials = '';
-      if (user?.name != null && user!.name.isNotEmpty) {
-        final nameParts = user.name.split(' ');
-        if (nameParts.isNotEmpty) {
-          initials = nameParts[0].substring(0, 1).toUpperCase();
-          if (nameParts.length > 1) {
-            initials += nameParts[1].substring(0, 1).toUpperCase();
-          }
-        }
-      } else {
-        initials = user?.email?.substring(0, 1).toUpperCase() ?? 'U';
-      }
-
-      return CircleAvatar(
-        radius: 16,
-        backgroundColor: Colors.blue.shade600,
-        child: Text(
-          initials,
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: 14,
-          ),
+        // תמיד נציג את האותיות ראשונות כ-fallback
+        child: Stack(
+          children: [
+            // תמונת האותיות כבסיס
+            initialsWidget,
+            // נסיון לטעון את התמונה מעל
+            ClipOval(
+              child: Image.network(
+                user.picture!,
+                width: 32,
+                height: 32,
+                fit: BoxFit.cover,
+                loadingBuilder: (context, child, loadingProgress) {
+                  // במהלך הטעינה, תציג את האותיות
+                  if (loadingProgress == null) {
+                    // הטעינה הסתיימה בהצלחה
+                    return child;
+                  }
+                  // עדיין טוען - תציג את האותיות
+                  return const SizedBox.shrink();
+                },
+                errorBuilder: (context, error, stackTrace) {
+                  print('❌ Failed to load image: $error');
+                  // אם יש שגיאה, תציג את האותיות (שכבר מוצגות)
+                  return const SizedBox.shrink();
+                },
+              ),
+            ),
+          ],
         ),
       );
+    } else {
+      print('⚠️ No valid picture URL, showing initials only');
+      return initialsWidget;
     }
+  }
+
+// וודא שיש גם את הפונקציה הזו (אם אין):
+  Widget _buildInitialsAvatar(User? user) {
+    String initials = '';
+    if (user?.name != null && user!.name.isNotEmpty) {
+      final nameParts = user.name.split(' ');
+      if (nameParts.isNotEmpty) {
+        initials = nameParts[0].substring(0, 1).toUpperCase();
+        if (nameParts.length > 1) {
+          initials += nameParts[1].substring(0, 1).toUpperCase();
+        }
+      }
+    } else {
+      initials = user?.email?.substring(0, 1).toUpperCase() ?? 'U';
+    }
+
+    return CircleAvatar(
+      radius: 16,
+      backgroundColor: Colors.blue.shade600,
+      child: Text(
+        initials,
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
+          fontSize: 14,
+        ),
+      ),
+    );
   }
 
   @override
